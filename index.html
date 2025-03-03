@@ -9,6 +9,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/estraverse/5.3.0/estraverse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/escodegen/2.1.0/escodegen.min.js"></script>
     <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            if (typeof esprima === "undefined") {
+                alert("Error: Esprima library failed to load. Please check your internet connection.");
+            }
+        });
+
         function decodeBase64(str) {
             try {
                 return atob(str);
@@ -18,27 +24,20 @@
         }
 
         function decodeHex(str) {
-            try {
-                return str.replace(/\x([0-9A-Fa-f]{2})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
-            } catch (e) {
-                return str;
-            }
+            return str.replace(/\x([0-9A-Fa-f]{2})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
         }
 
         function simplifyAST(ast) {
-            estraverse.replace(ast, {
+            return estraverse.replace(ast, {
                 enter: function (node) {
-                    // Remove empty blocks
                     if (node.type === "BlockStatement" && node.body.length === 0) {
                         return this.remove();
                     }
-                    // Inline constant variables
                     if (node.type === "VariableDeclarator" && node.init && node.init.type === "Literal") {
                         return { type: "Literal", value: node.init.value };
                     }
                 }
             });
-            return ast;
         }
 
         function deobfuscateCode(code) {
@@ -56,10 +55,8 @@
             const file = event.target.files[0];
             if (file && file.name.endsWith(".js")) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    const obfuscatedCode = e.target.result;
-                    const deobfuscatedCode = deobfuscateCode(obfuscatedCode);
-                    document.getElementById("outputCode").value = deobfuscatedCode;
+                reader.onload = function (e) {
+                    document.getElementById("outputCode").value = deobfuscateCode(e.target.result);
                 };
                 reader.readAsText(file);
             } else {
