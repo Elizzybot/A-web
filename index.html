@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal JavaScript Deobfuscator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.0/beautify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/esprima/4.0.1/esprima.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/estraverse/5.3.0/estraverse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/escodegen/2.1.0/escodegen.min.js"></script>
+    <script>
+        function decodeBase64(str) {
+            try {
+                return atob(str);
+            } catch (e) {
+                return str;
+            }
+        }
+
+        function decodeHex(str) {
+            try {
+                return str.replace(/\x([0-9A-Fa-f]{2})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+            } catch (e) {
+                return str;
+            }
+        }
+
+        function simplifyAST(ast) {
+            estraverse.replace(ast, {
+                enter: function (node) {
+                    // Remove empty blocks
+                    if (node.type === "BlockStatement" && node.body.length === 0) {
+                        return this.remove();
+                    }
+                    // Inline constant variables
+                    if (node.type === "VariableDeclarator" && node.init && node.init.type === "Literal") {
+                        return { type: "Literal", value: node.init.value };
+                    }
+                }
+            });
+            return ast;
+        }
+
+        function deobfuscateCode(code) {
+            try {
+                let decoded = decodeHex(decodeBase64(code));
+                let ast = esprima.parseScript(decoded, { tolerant: true });
+                ast = simplifyAST(ast);
+                return js_beautify(escodegen.generate(ast));
+            } catch (e) {
+                return "Error processing code: " + e.message;
+            }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.name.endsWith(".js")) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const obfuscatedCode = e.target.result;
+                    const deobfuscatedCode = deobfuscateCode(obfuscatedCode);
+                    document.getElementById("outputCode").value = deobfuscatedCode;
+                };
+                reader.readAsText(file);
+            } else {
+                alert("Please upload a valid .js file");
+            }
+        }
+
+        function downloadDeobfuscatedFile() {
+            const deobfuscatedCode = document.getElementById("outputCode").value;
+            const blob = new Blob([deobfuscatedCode], { type: "text/javascript" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "deobfuscated.js";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</head>
+<body>
+    <h2>Universal JavaScript Deobfuscator</h2>
+    <input type="file" id="fileInput" accept=".js" onchange="handleFileUpload(event)">
+    <br><br>
+    <textarea id="outputCode" rows="10" cols="80" readonly placeholder="Deobfuscated code will appear here..."></textarea>
+    <br>
+    <button onclick="downloadDeobfuscatedFile()">Download Deobfuscated File</button>
+</body>
+</html>
